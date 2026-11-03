@@ -1,0 +1,406 @@
+// Prisma Schema for Interio Multi-Company Management Platform (MySQL Version)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id             String   @id @default(cuid())
+  name           String
+  code           String   @unique
+  logoUrl        String?  @db.Text
+  tagline        String?
+  phone          String?
+  email          String?
+  website        String?
+  address        String?  @db.Text
+  gstin          String?
+  pan            String?
+  bankName       String?
+  accountNumber  String?
+  ifscCode       String?
+  branch         String?
+  quotationTerms String?  @db.Text
+  invoiceTerms   String?  @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  deletedAt      DateTime?
+
+  users                User[]
+  leads                Lead[]
+  clients              Client[]
+  serviceCatalogues    ServiceCatalogue[]
+  quotations           Quotation[]
+  projects             Project[]
+  vendors              Vendor[]
+  invoices             ClientInvoice[]
+  payments             ClientPayment[]
+  vendorPayments       VendorPayment[]
+  expenses             SiteExpense[]
+  extraWorks           ExtraWork[]
+  materialRequisitions MaterialRequisition[]
+}
+
+model User {
+  id        String    @id @default(cuid())
+  companyId String?
+  company   Company?  @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  clientId  String?
+  client    Client?   @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  vendorId  String?
+  vendor    Vendor?   @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  name      String
+  email     String    @unique
+  password  String
+  role      String    @default("ADMIN") // MASTER_ADMIN, ADMIN, SALES, DESIGNER, PROJECT_MANAGER, ACCOUNTANT, CLIENT, VENDOR
+  status    String    @default("Active") // Active, Inactive
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+}
+
+model Lead {
+  id              String    @id @default(cuid())
+  companyId       String?
+  company         Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name            String
+  email           String?
+  phone           String
+  source          String    // Meta, Google, Property Portal, Website, Referral, Broker, Manual
+  status          String    @default("New") // New, Contacted, Site Visit Scheduled, Proposal Sent, Won, Lost
+  assignedTo      String?
+  propertyType    String?
+  estimatedBudget Float?
+  location        String?
+  notes           String?   @db.Text
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  clients         Client[]
+}
+
+model Client {
+  id             String    @id @default(cuid())
+  companyId      String?
+  company        Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  leadId         String?
+  lead           Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  name           String
+  email          String?
+  phone          String
+  alternatePhone String?
+  address        String?   @db.Text
+  city           String?
+  propertyType   String?
+  budget         Float?
+  notes          String?   @db.Text
+  status         String    @default("Active") // Active, Completed, On Hold
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  users          User[]
+  quotations     Quotation[]
+  projects       Project[]
+  invoices       ClientInvoice[]
+  payments       ClientPayment[]
+}
+
+model ServiceCatalogue {
+  id           String    @id @default(cuid())
+  companyId    String?
+  company      Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  category     String    // Modular Kitchen, Wardrobes, Civil, Electrical, False Ceiling, Painting, Plumbing, Decor, Misc
+  title        String
+  description  String?   @db.Text
+  unit         String    // sq.ft, r.ft, unit, lump sum, sq.m, kg, liter
+  defaultPrice Float
+  status       String    @default("Active")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+}
+
+model Quotation {
+  id             String    @id @default(cuid())
+  companyId      String?
+  company        Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  quoteNumber    String    @unique
+  clientId       String
+  client         Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientName     String
+  clientPhone    String?
+  siteAddress    String?   @db.Text
+  status         String    @default("Draft") // Draft, Sent, Accepted, Rejected, Expired
+  subtotal       Float     @default(0)
+  discountAmount Float     @default(0)
+  taxRate        Float     @default(18)
+  taxAmount      Float     @default(0)
+  grandTotal     Float     @default(0)
+  validityDays   Int       @default(30)
+  terms          String?   @db.Text
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  items          QuotationItem[]
+  projects       Project[]
+}
+
+model QuotationItem {
+  id          String    @id @default(cuid())
+  quotationId String
+  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  room        String    @default("General")
+  category    String
+  title       String
+  description String?   @db.Text
+  quantity    Float     @default(1)
+  unit        String    @default("sq.ft") // sq.ft, r.ft, unit, kg, liter, sheet, box, bag
+  unitRate    Float     @default(0)
+  totalAmount Float     @default(0)
+}
+
+model Project {
+  id                 String                @id @default(cuid())
+  companyId          String?
+  company            Company?              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  projectNumber      String                @unique
+  clientId           String
+  client             Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  quotationId        String?
+  quotation          Quotation?            @relation(fields: [quotationId], references: [id], onDelete: SetNull)
+  title              String
+  siteAddress        String                @db.Text
+  startDate          DateTime?
+  targetEndDate      DateTime?
+  actualEndDate      DateTime?
+  status             String                @default("Planning") // Planning, Execution, Finishing, Completed, On Hold
+  budget             Float                 @default(0)
+  progressPercentage Int                   @default(0)
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  deletedAt          DateTime?
+
+  milestones         ProjectMilestone[]
+  designs            Design[]
+  vendorContracts    VendorContract[]
+  invoices           ClientInvoice[]
+  payments           ClientPayment[]
+  vendorPayments     VendorPayment[]
+  expenses           SiteExpense[]
+  extraWorks         ExtraWork[]
+  requisitions       MaterialRequisition[]
+}
+
+model ProjectMilestone {
+  id            String    @id @default(cuid())
+  projectId     String
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title         String
+  description   String?   @db.Text
+  dueDate       DateTime?
+  completedDate DateTime?
+  status        String    @default("Pending")
+  order         Int       @default(0)
+}
+
+model Design {
+  id             String    @id @default(cuid())
+  projectId      String
+  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title          String
+  type           String
+  fileUrl        String    @db.LongText
+  version        String    @default("v1.0")
+  approvalStatus String    @default("Pending")
+  clientFeedback String?   @db.Text
+  uploadedAt     DateTime  @default(now())
+  deletedAt      DateTime?
+}
+
+model Vendor {
+  id           String                @id @default(cuid())
+  companyId    String?
+  company      Company?              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name         String
+  companyName  String?
+  trade        String
+  phone        String
+  email        String?
+  gstin        String?
+  status       String                @default("Active")
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+  deletedAt    DateTime?
+
+  users        User[]
+  contracts    VendorContract[]
+  payments     VendorPayment[]
+  requisitions MaterialRequisition[]
+}
+
+model VendorContract {
+  id               String                       @id @default(cuid())
+  vendorId         String
+  vendor           Vendor                       @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  projectId        String
+  project          Project                      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  contractType     String                       @default("LABOUR_AND_MATERIAL") // LABOUR_AND_MATERIAL, LABOUR_ONLY
+  workType         String
+  scopeDescription String?                      @db.Text
+  labourAmount     Float                        @default(0)
+  materialAmount   Float                        @default(0)
+  agreedAmount     Float                        @default(0)
+  status           String                       @default("Active")
+  createdAt        DateTime                     @default(now())
+  deletedAt        DateTime?
+
+  materials        VendorContractMaterialItem[]
+}
+
+model VendorContractMaterialItem {
+  id               String         @id @default(cuid())
+  vendorContractId String
+  vendorContract   VendorContract @relation(fields: [vendorContractId], references: [id], onDelete: Cascade)
+  materialName     String         // e.g. BWP Marine Plywood, Soft-close Hinges, Gypsum Board
+  specification    String?        @db.Text // e.g. 18mm CenturyPly, Hettich 3D
+  quantity         Float          @default(1)
+  unit             String         @default("sheet") // sheet, pair, sq.ft, kg, liter, box, bag, unit
+  unitPrice        Float          @default(0)
+  totalPrice       Float          @default(0)
+}
+
+model MaterialRequisition {
+  id                String                    @id @default(cuid())
+  companyId         String?
+  company           Company?                  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  requisitionNumber String                    @unique
+  projectId         String
+  project           Project                   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  vendorId          String?
+  vendor            Vendor?                   @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  purpose           String?                   @db.Text // e.g. False Ceiling Framing, Electrical Wiring, Kitchen Carcass
+  requisitionDate   DateTime                  @default(now())
+  status            String                    @default("Requested") // Requested, Purchased, Delivered at Site, Cancelled
+  totalPurchaseCost Float                     @default(0)
+  invoiceUrl        String?                   @db.Text
+  purchaseNotes     String?                   @db.Text
+  purchasedAt       DateTime?
+  deliveredAt       DateTime?
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+  deletedAt         DateTime?
+
+  items             MaterialRequisitionItem[]
+}
+
+model MaterialRequisitionItem {
+  id                    String              @id @default(cuid())
+  materialRequisitionId String
+  materialRequisition   MaterialRequisition @relation(fields: [materialRequisitionId], references: [id], onDelete: Cascade)
+  materialName          String
+  specification         String?             @db.Text
+  quantity              Float               @default(1)
+  unit                  String              @default("unit") // kg, liter, sheet, bag, sq.ft, r.ft, box, pair, unit
+  unitPrice             Float?              @default(0)
+  totalPrice            Float?              @default(0)
+  status                String              @default("Requested")
+}
+
+model ClientInvoice {
+  id            String          @id @default(cuid())
+  companyId     String?
+  company       Company?        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  invoiceNumber String          @unique
+  projectId     String
+  project       Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  clientId      String
+  client        Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  milestoneName String
+  amount        Float
+  taxAmount     Float           @default(0)
+  totalAmount   Float
+  status        String          @default("Issued")
+  dueDate       DateTime?
+  issuedDate    DateTime        @default(now())
+  notes         String?         @db.Text
+  deletedAt     DateTime?
+
+  payments      ClientPayment[]
+}
+
+model ClientPayment {
+  id             String        @id @default(cuid())
+  companyId      String?
+  company        Company?      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  invoiceId      String?
+  invoice        ClientInvoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  projectId      String
+  project        Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  clientId       String
+  client         Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  amountPaid     Float
+  paymentDate    DateTime      @default(now())
+  paymentMode    String
+  transactionRef String?
+  proofUrl       String?       @db.Text
+  receiptNumber  String?
+  deletedAt      DateTime?
+}
+
+model VendorPayment {
+  id             String    @id @default(cuid())
+  companyId      String?
+  company        Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  vendorId       String
+  vendor         Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  projectId      String
+  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  amount         Float
+  paymentDate    DateTime  @default(now())
+  paymentMode    String
+  category       String    @default("Labour")
+  notes          String?   @db.Text
+  transactionRef String?
+  deletedAt      DateTime?
+}
+
+model SiteExpense {
+  id          String    @id @default(cuid())
+  companyId   String?
+  company     Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title       String
+  category    String
+  amount      Float
+  expenseDate DateTime  @default(now())
+  recordedBy  String?
+  receiptUrl  String?   @db.Text
+  notes       String?   @db.Text
+  deletedAt   DateTime?
+}
+
+model ExtraWork {
+  id             String    @id @default(cuid())
+  companyId      String?
+  company        Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  projectId      String
+  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workTitle      String
+  description    String?   @db.Text
+  requestedBy    String    @default("Client")
+  estimatedCost  Float
+  approvedAmount Float     @default(0)
+  approvalStatus String    @default("Pending")
+  createdDate    DateTime  @default(now())
+  billingAdded   Boolean   @default(false)
+  deletedAt      DateTime?
+}
